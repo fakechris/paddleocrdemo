@@ -6,6 +6,7 @@ warnings.filterwarnings("ignore", category=UserWarning, module='paddle.utils.cpp
 
 import cv2
 from paddleocr import PaddleOCR, draw_ocr
+from paddleocr import PPStructure, save_structure_res
 
 # Set ppocr logger level to INFO to suppress DEBUG messages
 logging.getLogger('ppocr').setLevel(logging.INFO)
@@ -14,6 +15,11 @@ logging.getLogger('ppocr').setLevel(logging.INFO)
 DET_MODEL_DIR = "./ch_PP-OCRv3_det_infer"   # 检测模型
 CLS_MODEL_DIR = "./ch_ppocr_mobile_v2.0_cls_infer"  # 方向分类模型
 REC_MODEL_DIR = "./ch_PP-OCRv3_rec_infer"  # 识别模型
+
+TABLE_MODEL_DIR="./ch_ppstructure_mobile_v2.0_SLANet_infer"
+# 字典文件（PPOCRKeys + Table Structure Dict）
+REC_CHAR_DICT_PATH="./ppocr_keys_v1.txt"
+TABLE_CHAR_DICT_PATH="./table_structure_dict.txt"
 
 # read image_path from sys argv
 image_path = sys.argv[1]
@@ -112,10 +118,13 @@ cv2.imwrite(output_image_path, image_with_boxes)
 print(f"\nVisualization saved to: {output_image_path}")
 
 # Display the image
-cv2.imshow('OCR Result Visualization', image_with_boxes)
-print("Press any key in the image window to close it.")
-cv2.waitKey(0)  # Wait indefinitely until a key is pressed
-cv2.destroyAllWindows() # Close the image window
+is_display_debug = False
+if is_display_debug:
+    cv2.imshow('OCR Result Visualization', image_with_boxes)
+    print("Press any key in the image window to close it.")
+    cv2.waitKey(0)  # Wait indefinitely until a key is pressed
+    cv2.destroyAllWindows() # Close the image window
+
 # -------------------------------------
 
 # 5. 打印识别结果
@@ -138,3 +147,27 @@ else:
                 print(f"Warning: Malformed text_score_pair in line_data item {i+1}: {text_score_pair}")
         else:
             print(f"Warning: Malformed line_data item {i+1}: {line_data}")
+
+# 6. 初始化 PP-Structure 引擎
+engine = PPStructure(
+    det_model_dir=DET_MODEL_DIR,
+    rec_model_dir=REC_MODEL_DIR,
+    table_model_dir=TABLE_MODEL_DIR,
+    rec_char_dict_path=REC_CHAR_DICT_PATH,
+    table_char_dict_path=TABLE_CHAR_DICT_PATH,
+    lang="ch"   # 中文环境
+)
+
+# 7. 读取图片并预测
+img = cv2.imread(image_path)
+results = engine(img)  # 返回一个 dict 列表，包含 Text/Table/Title 等多种 type
+
+# 8. 导出结果
+for res in results:
+    # 保存 Excel
+    save_structure_res(results, "./output", "mytable")
+    # 或者保存 JSON
+    save_structure_res(results, "./output", "mytable", output_format="json")
+    break  # 多图按需循环
+
+print("Done.")

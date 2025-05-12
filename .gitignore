@@ -1,3 +1,5 @@
 result_*.jpg
 demo/*
 .DS_Store
+output.*
+output/*
