@@ -1,10 +1,13 @@
 import warnings
 import logging
 import sys
+import os
+import cv2
+import json
+
 # Suppress the specific UserWarning from PaddlePaddle about ccache
 warnings.filterwarnings("ignore", category=UserWarning, module='paddle.utils.cpp_extension.extension_utils')
 
-import cv2
 from paddleocr import PaddleOCR, draw_ocr
 from paddleocr import PPStructure, save_structure_res
 
@@ -23,6 +26,7 @@ TABLE_CHAR_DICT_PATH="./table_structure_dict.txt"
 
 # read image_path from sys argv
 image_path = sys.argv[1]
+IS_DISPLAY_DEBUG = False
 
 # 2. 初始化 OCR 引擎，强制使用中文
 ocr = PaddleOCR(
@@ -90,7 +94,6 @@ if results and results[0]:
 
 # --- Visualization using draw_ocr ---
 # Ensure the font file exists before trying to draw
-import os
 if not os.path.exists(font_path):
     print(f"\nWarning: Font file not found at {font_path}. Text rendering in the output image might be incorrect.")
     print("Please download a suitable font (like simfang.ttf) and place it at the specified path or update the font_path variable.")
@@ -118,8 +121,7 @@ cv2.imwrite(output_image_path, image_with_boxes)
 print(f"\nVisualization saved to: {output_image_path}")
 
 # Display the image
-is_display_debug = False
-if is_display_debug:
+if IS_DISPLAY_DEBUG:
     cv2.imshow('OCR Result Visualization', image_with_boxes)
     print("Press any key in the image window to close it.")
     cv2.waitKey(0)  # Wait indefinitely until a key is pressed
@@ -153,8 +155,8 @@ engine = PPStructure(
     det_model_dir=DET_MODEL_DIR,
     rec_model_dir=REC_MODEL_DIR,
     table_model_dir=TABLE_MODEL_DIR,
-    rec_char_dict_path=REC_CHAR_DICT_PATH,
-    table_char_dict_path=TABLE_CHAR_DICT_PATH,
+    #rec_char_dict_path=REC_CHAR_DICT_PATH,
+    #table_char_dict_path=TABLE_CHAR_DICT_PATH,
     lang="ch"   # 中文环境
 )
 
@@ -163,11 +165,22 @@ img = cv2.imread(image_path)
 results = engine(img)  # 返回一个 dict 列表，包含 Text/Table/Title 等多种 type
 
 # 8. 导出结果
-for res in results:
-    # 保存 Excel
-    save_structure_res(results, "./output", "mytable")
-    # 或者保存 JSON
-    save_structure_res(results, "./output", "mytable", output_format="json")
-    break  # 多图按需循环
+# 调用 save_structure_res，仅用三个必选参数
+save_folder = "./output"
+os.makedirs(save_folder, exist_ok=True)
+save_structure_res(results, save_folder, "mytable")  
+
+# 这样会在 ./output 下产出：
+#   mytable.xlsx  —— 表格形式
+#   mytable.txt   —— 每行 JSON 格式的识别结果
+
+# 2) 如果你只想要一个纯 JSON 文件，可以这样做：
+#    （同时过滤掉 'img' 字段，否则无法序列化）
+cleaned = []
+for region in results:
+    entry = {k:v for k,v in region.items() if k != "img"}
+    cleaned.append(entry)
+with open(os.path.join(save_folder, "mytable.json"), "w", encoding="utf-8") as f:
+    json.dump(cleaned, f, ensure_ascii=False, indent=2)
 
 print("Done.")
