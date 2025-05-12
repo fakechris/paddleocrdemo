@@ -1,5 +1,6 @@
 import warnings
 import logging
+import sys
 # Suppress the specific UserWarning from PaddlePaddle about ccache
 warnings.filterwarnings("ignore", category=UserWarning, module='paddle.utils.cpp_extension.extension_utils')
 
@@ -14,7 +15,8 @@ DET_MODEL_DIR = "./ch_PP-OCRv3_det_infer"   # 检测模型
 CLS_MODEL_DIR = "./ch_ppocr_mobile_v2.0_cls_infer"  # 方向分类模型
 REC_MODEL_DIR = "./ch_PP-OCRv3_rec_infer"  # 识别模型
 
-image_path = "./438/Scan_0002.jpg"
+# read image_path from sys argv
+image_path = sys.argv[1]
 
 # 2. 初始化 OCR 引擎，强制使用中文
 ocr = PaddleOCR(
